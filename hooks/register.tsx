@@ -10,6 +10,8 @@ const NOT_PASTED = 'could not paste into the prompt; kept it'
 const items = atom({ plugin: 'pstash', key: 'items' } as const, [] as Item[])
 // True while a /stash run is under way, so its spinner can be blanked.
 const isRunning = atom({ plugin: 'pstash', key: 'isRunning' } as const, false)
+// The id of the picker row that holds the focus ring, for `x` to delete.
+const focused = atom({ plugin: 'pstash', key: 'focused' } as const, null as string | null)
 
 // The transcript row of a `/stash ...` run, and the args in it to blank out.
 const STASH_ROW = /<command-name>\/?(?:pstash:)?stash<\/command-name>/
@@ -85,6 +87,21 @@ async function openPicker($: $): Promise<string> {
   const rows = Math.min(file.items.length, SHOWN) + 1
   await $.ui.open({ id: PANE, title: 'Stash', focus: true, closeOnEscape: true, rows })
   return `${file.items.length} stashed`
+}
+
+/** Deletes the highlighted row (else the first) and moves the ring to the row now in its place. */
+async function deleteFocused($: $): Promise<void> {
+  const list = await read($, items)
+  const id = await read($, focused)
+  const at = Math.max(0, list.findIndex(item => item.id === id))
+  const target = list[at]
+  if (target === undefined) return
+  const file = await change($, f => remove(f, target.id))
+  const next = file.items[Math.min(at, file.items.length - 1)]
+  if (next === undefined) return $.ui.close({ id: PANE })
+  await update($, focused, () => next.id)
+  // A hotkey press leaves the ring on its own button once the press ends.
+  $.clock.after(30, () => void $.ui.focus({ requestId: PANE, key: `pop-${next.id}` }))
 }
 
 function message(error: unknown): string {
@@ -165,40 +182,53 @@ export const register: Register = on => {
     return next({ ...e, props: { ...e.props, modes: [...e.props.modes, `stash ${count}`] } })
   })
 
+  // The ring stays on the rows: never on the delete control or the close mark.
+  on('ui.focus', { requestId: PANE }, async ($, e, next) => {
+    const element = e.element ?? ''
+    if (!element.startsWith('pop-')) {
+      const id = await read($, focused)
+      return id === null ? { deny: 'rows only' } : next({ ...e, element: `pop-${id}` })
+    }
+    await update($, focused, () => element.slice('pop-'.length))
+    return next(e)
+  })
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Button, Text } = $.ui.resolve(e)
     const list = await read($, items)
-    const width = Math.max(10, e.props.bodyColumns - 8)
+    const width = Math.max(10, e.props.bodyColumns - 4)
     if (list.length === 0) return <Text dimColor>Nothing stashed.</Text>
 
     return (
       <Box flexDirection="column">
         {list.map((item, i) => (
-          <Box key={`row-${item.id}`}>
-            <Button
-              key={`pop-${item.id}`}
-              plain
-              {...(i < 9 ? { hotkey: String(i + 1) } : {})}
-              {...(i === 0 ? { autoFocus: true as const } : {})}
-              onPress={() =>
-                pop($, item).then(
-                  text => text === NOT_PASTED && $.ui.toast(text),
-                  error => failed($, error),
-                )
-              }
-            >
-              {preview(item.text, width)}
-            </Button>
-            <Text> </Text>
-            <Button
-              key={`del-${item.id}`}
-              plain
-              label="✕"
-              onPress={() => change($, f => remove(f, item.id)).catch(error => failed($, error))}
-            />
-          </Box>
+          <Button
+            key={`pop-${item.id}`}
+            plain
+            {...(i < 9 ? { hotkey: String(i + 1) } : {})}
+            {...(i === 0 ? { autoFocus: true as const } : {})}
+            onPress={() =>
+              pop($, item).then(
+                text => text === NOT_PASTED && $.ui.toast(text),
+                error => failed($, error),
+              )
+            }
+          >
+            {preview(item.text, width)}
+          </Button>
         ))}
-        <Text dimColor>enter or 1-9 paste · tab move · ✕ delete · esc close</Text>
+        <Box>
+          <Text dimColor>enter or 1-9 paste · ↑↓ move · </Text>
+          <Button
+            key="delete"
+            plain
+            dimColor
+            hotkey="x"
+            label="delete"
+            onPress={() => deleteFocused($).catch(error => failed($, error))}
+          />
+          <Text dimColor> · esc close</Text>
+        </Box>
       </Box>
     )
   })

@@ -26,6 +26,7 @@ function world(on: On, files: Record<string, string> = {}) {
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
   on('ui.panes', () => ({ value: [] }))
+  on('ui.focus', () => ({}))
   on('ui.status', () => ({ value: undefined }))
   // Stands for the engine's footer: draws the labels it is handed.
   on('ui.render', { component: 'SessionMode' }, ($, e) => h($.ui.resolve(e).Text, {}, e.props.modes.join(' & ')) as never)
@@ -96,7 +97,7 @@ test('the picker pastes the chosen item', async ($, on) => {
       requestId: 'pstash',
       props: { title: 'Stash', isFocused: true, bodyColumns: 60, placement: 'inline' } as never,
     })
-    expect(await ui.findAll({ type: 'Button' })).toHaveLength(4)
+    expect(await ui.findAll({ type: 'Button' })).toHaveLength(3)
     await ui.unmount()
   }
   const ui = await $.ui.mount({
@@ -131,4 +132,23 @@ test('blanks the stashed text in the command row the model reads', async ($, on)
   const texts = JSON.stringify(session.appended().map(r => r.message.content))
   expect(texts).toContain('<command-args></command-args>')
   expect(texts).not.toContain('secret')
+})
+
+test('x deletes the highlighted row, and the ring stays on the rows', async ($, on) => {
+  const w = world(on)
+  await run($, 'one')
+  await run($, 'two')
+  await run($, '')
+  const ui = await $.ui.mount({
+    plugin: 'pstash',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'pstash',
+    props: { title: 'Stash', isFocused: true, bodyColumns: 60, placement: 'inline' } as never,
+  })
+  const [two, one] = stored(w.files).map((i: { id: string }) => i.id)
+  expect(await $.ui.focus({ component: 'Pane', requestId: 'pstash', element: 'delete', origin: { kind: 'person' } })).toMatchObject({ deny: expect.any(String) })
+  await $.ui.focus({ component: 'Pane', requestId: 'pstash', element: `pop-${one}`, origin: { kind: 'person' } })
+  await ui.press({ key: 'delete' })
+  expect(stored(w.files).map((i: { id: string }) => i.id)).toEqual([two])
 })
