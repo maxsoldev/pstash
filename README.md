@@ -64,6 +64,31 @@ One JSON file per project, shared by all sessions: `~/.pstash/<project path with
 
 Items are newest first, capped at 100, without duplicates. Each change re-reads the file, so sessions don't overwrite each other, and a file that doesn't parse is never overwritten. Any tool that follows this format can share the stash.
 
+## What it runs and sends
+
+**What it sends, and where.** Nothing. Stashes stay on your machine in `~/.pstash/`. The mod makes no network calls and no model calls.
+
+**Which programs it runs.** None.
+
+**What it changes in your prompts.** Nothing. It submits no prompts and adds nothing to yours.
+
+**What it changes in the chat.** In the record of a `/stash` run it blanks the command's arguments, so the stashed text never reaches Claude. Claude only sees `/stash` and the short output line, like `stashed · 3`.
+
+**What it reads.** The `HOME` and `PSTASH_DIR` environment variables, to find the stash folder, and the session's project root, to pick the file.
+
+**What each hook does.**
+- `session.start`: adds the `/stash` command and loads the stash count.
+- `command.run` for `stash`: saves, pops or opens the picker.
+- `session.append` for command rows: blanks the arguments of a `/stash` run.
+- `prompt.submit`, `turn.start`, `turn.complete`: notice a `/stash` run outside a turn, so its spinner can be hidden. Prompts pass through unchanged.
+- `ui.render` for `Spinner`: draws the spinner blank while `/stash` runs outside a turn.
+- `ui.render` for `SessionMode`: adds `stash n` to the footer.
+- `ui.render` for its pane: draws the picker.
+
+## License
+
+[MIT](LICENSE)
+
 ## Develop
 
 ```

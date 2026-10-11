@@ -6,5 +6,6 @@
     "name": "maxsoldev"
   },
   "repository": "https://github.com/maxsoldev/pstash",
+  "license": "MIT",
   "types": "./types/index.d.ts"
 }
