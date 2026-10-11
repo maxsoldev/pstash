@@ -1,0 +1,13 @@
+{
+  "name": "pstash",
+  "description": "Stash prompts and pop them back into the input box",
+  "owner": {
+    "name": "maxsoldev"
+  },
+  "plugins": [
+    {
+      "name": "pstash",
+      "source": "./"
+    }
+  ]
+}
