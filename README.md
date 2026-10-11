@@ -1,5 +1,7 @@
 # pstash
 
+[![Latest release](https://img.shields.io/github/v/release/maxsoldev/pstash)](https://github.com/maxsoldev/pstash/releases/latest) [![License: MIT](https://img.shields.io/github/license/maxsoldev/pstash)](LICENSE)
+
 Stash prompts for later and pop them back into the input box. A [Claude Code](https://claude.com/claude-code) mod: instant, no model call, works while Claude is busy, and the stashed text never reaches the model.
 
 ## Why not just type a follow-up?
