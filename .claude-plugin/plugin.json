@@ -1,0 +1,10 @@
+{
+  "name": "pstash",
+  "version": "0.1.0",
+  "description": "Stash prompts for later and pop them back into the input box. Instant, no model call.",
+  "author": {
+    "name": "maxsoldev"
+  },
+  "repository": "https://github.com/maxsoldev/pstash",
+  "types": "./types/index.d.ts"
+}
