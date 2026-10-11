@@ -39,7 +39,7 @@ In Claude Code:
 
 ![The prompt is back in the input box](docs/3-popped.png)
 
-**Or pick one.** Bare `/stash` lists everything: Enter or `1`-`9` pastes, Tab moves, `✕` deletes, Esc closes.
+**Or pick one.** Bare `/stash` lists everything: Enter or `1`-`9` pastes, ↑↓ move, `x` deletes the highlighted prompt, Esc closes.
 
 ![The picker](docs/4-picker.png)
 
@@ -84,6 +84,7 @@ Items are newest first, capped at 100, without duplicates. Each change re-reads 
 - `ui.render` for `Spinner`: draws the spinner blank while `/stash` runs outside a turn.
 - `ui.render` for `SessionMode`: adds `stash n` to the footer.
 - `ui.render` for its pane: draws the picker.
+- `ui.focus` for its pane: keeps the highlight on the prompts, so `x` always knows which one to delete.
 
 ## License
 
