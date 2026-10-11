@@ -9,7 +9,7 @@ A message you type while Claude is working is queued. Claude reads it during the
 Stash is for prompts you **don't** want sent yet:
 
 - **Side questions.** "How does the retry logic decide when to give up?" would derail the task Claude is on. Stash it and ask once the task is done.
-- **Several ideas at once.** Jot down every question or follow-up as it comes to you, then send them one at a time, in the order you choose.
+- **Several ideas at once.** Jot down every question or follow-up as it comes to you, then expand on them and send them one at a time, in the order you choose.
 
 ## Install
 
@@ -21,11 +21,11 @@ In Claude Code:
 
 ## Use
 
-| Command | Does |
-|---|---|
-| `/stash <text>` | Saves the text |
-| `/stash pop` | Pastes the newest stash into the input box |
-| `/stash` | Opens the picker |
+| Command         | Does                                       |
+| --------------- | ------------------------------------------ |
+| `/stash <text>` | Saves the text                             |
+| `/stash pop`    | Pastes the newest stash into the input box |
+| `/stash`        | Opens the picker                           |
 
 **1. Stash a prompt.** Type `/stash` and the prompt you want to send later.
 
@@ -51,7 +51,14 @@ One JSON file per project, shared by all sessions: `~/.pstash/<project path with
 {
   "version": 1,
   "project": "/Users/max/app",
-  "items": [{ "id": "lx2k9a3f", "text": "how does the retry logic decide when to give up...", "at": "2026-10-11T14:20:00.000Z", "from": "claude" }]
+  "items": [
+    {
+      "id": "lx2k9a3f",
+      "text": "how does the retry logic decide when to give up...",
+      "at": "2026-10-11T14:20:00.000Z",
+      "from": "claude"
+    }
+  ]
 }
 ```
 
