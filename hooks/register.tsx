@@ -10,7 +10,7 @@ const NOT_PASTED = 'could not paste into the prompt; kept it'
 const items = atom({ plugin: 'pstash', key: 'items' } as const, [] as Item[])
 // True while a /stash run is under way, so its spinner can be blanked.
 const isRunning = atom({ plugin: 'pstash', key: 'isRunning' } as const, false)
-// The id of the picker row that holds the focus ring, for `x` to delete.
+// The id of the picker row that holds the focus ring, for `x` and `y`.
 const focused = atom({ plugin: 'pstash', key: 'focused' } as const, null as string | null)
 
 // The transcript row of a `/stash ...` run, and the args in it to blank out.
@@ -65,19 +65,35 @@ async function stash($: $, text: string): Promise<string> {
   return `stashed · ${file.items.length}`
 }
 
-/** Pastes at the cursor first and removes only once the box took it. */
-async function pop($: $, item: Item): Promise<string> {
+/** Pastes at the cursor first and removes only once the box took it; `keep` leaves it stashed. */
+async function pop($: $, item: Item, keep = false): Promise<string> {
   const isOpen = (await $.ui.panes()).some(pane => pane.id === PANE)
   if (isOpen) await $.ui.close({ id: PANE })
   const filled = await $.prompt.fill({ text: item.text, mode: 'insert' })
   if (!filled.isFilled) return NOT_PASTED
+  if (keep) return `pasted · kept, ${(await load($)).items.length} stashed`
   const file = await change($, f => remove(f, item.id))
   return `pasted · ${file.items.length} left`
 }
 
-async function popNewest($: $): Promise<string> {
+async function popNewest($: $, keep = false): Promise<string> {
   const newest = (await load($)).items[0]
-  return newest === undefined ? 'nothing stashed' : pop($, newest)
+  return newest === undefined ? 'nothing stashed' : pop($, newest, keep)
+}
+
+/** The highlighted picker row, else the first, with its index. */
+async function focusedItem($: $): Promise<{ at: number; target: Item | undefined }> {
+  const list = await read($, items)
+  const id = await read($, focused)
+  const at = Math.max(0, list.findIndex(item => item.id === id))
+  return { at, target: list[at] }
+}
+
+function reportPop($: $, pending: Promise<string>): void {
+  pending.then(
+    text => text === NOT_PASTED && $.ui.toast(text),
+    error => failed($, error),
+  )
 }
 
 async function openPicker($: $): Promise<string> {
@@ -91,10 +107,7 @@ async function openPicker($: $): Promise<string> {
 
 /** Deletes the highlighted row (else the first) and moves the ring to the row now in its place. */
 async function deleteFocused($: $): Promise<void> {
-  const list = await read($, items)
-  const id = await read($, focused)
-  const at = Math.max(0, list.findIndex(item => item.id === id))
-  const target = list[at]
+  const { at, target } = await focusedItem($)
   if (target === undefined) return
   const file = await change($, f => remove(f, target.id))
   const next = file.items[Math.min(at, file.items.length - 1)]
@@ -117,7 +130,7 @@ export const register: Register = on => {
     await $.command.register({
       name: 'stash',
       description: 'Stash a prompt for later; bare /stash picks one to paste back',
-      argumentHint: '[text | pop]',
+      argumentHint: '[text | pop | yank]',
       immediate: true,
     })
     $.ui.status(undefined) // clears the line 0.1.0 pinned
@@ -148,6 +161,7 @@ export const register: Register = on => {
     try {
       if (args === '') return { text: await openPicker($) }
       if (args === 'pop') return { text: await popNewest($) }
+      if (args === 'yank') return { text: await popNewest($, true) }
       return { text: await stash($, args) }
     } catch (error) {
       return { text: message(error) }
@@ -182,7 +196,7 @@ export const register: Register = on => {
     return next({ ...e, props: { ...e.props, modes: [...e.props.modes, `stash ${count}`] } })
   })
 
-  // The ring stays on the rows: never on the delete control or the close mark.
+  // The ring stays on the rows: never on the yank or delete control or the close mark.
   on('ui.focus', { requestId: PANE }, async ($, e, next) => {
     const element = e.element ?? ''
     if (!element.startsWith('pop-')) {
@@ -207,18 +221,27 @@ export const register: Register = on => {
             plain
             {...(i < 9 ? { hotkey: String(i + 1) } : {})}
             {...(i === 0 ? { autoFocus: true as const } : {})}
-            onPress={() =>
-              pop($, item).then(
-                text => text === NOT_PASTED && $.ui.toast(text),
-                error => failed($, error),
-              )
-            }
+            onPress={() => reportPop($, pop($, item))}
           >
             {preview(item.text, width)}
           </Button>
         ))}
         <Box>
           <Text dimColor>enter or 1-9 paste · ↑↓ move · </Text>
+          <Button
+            key="yank"
+            plain
+            dimColor
+            hotkey="y"
+            label="yank"
+            onPress={() =>
+              focusedItem($).then(
+                ({ target }) => target && reportPop($, pop($, target, true)),
+                error => failed($, error),
+              )
+            }
+          />
+          <Text dimColor> · </Text>
           <Button
             key="delete"
             plain
