@@ -97,7 +97,7 @@ test('the picker pastes the chosen item', async ($, on) => {
       requestId: 'pstash',
       props: { title: 'Stash', isFocused: true, bodyColumns: 60, placement: 'inline' } as never,
     })
-    expect(await ui.findAll({ type: 'Button' })).toHaveLength(3)
+    expect(await ui.findAll({ type: 'Button' })).toHaveLength(4)
     await ui.unmount()
   }
   const ui = await $.ui.mount({
@@ -151,4 +151,32 @@ test('x deletes the highlighted row, and the ring stays on the rows', async ($, 
   await $.ui.focus({ component: 'Pane', requestId: 'pstash', element: `pop-${one}`, origin: { kind: 'person' } })
   await ui.press({ key: 'delete' })
   expect(stored(w.files).map((i: { id: string }) => i.id)).toEqual([two])
+})
+
+test('yank pastes the newest and keeps it stashed', async ($, on) => {
+  const w = world(on)
+  await run($, 'older')
+  await run($, 'keep me')
+  expect((await run($, 'yank')).text).toBe('pasted · kept, 2 stashed')
+  expect(w.box.text).toBe('keep me')
+  expect(stored(w.files).map((i: { text: string }) => i.text)).toEqual(['keep me', 'older'])
+})
+
+test('y in the picker pastes the highlighted row and keeps it', async ($, on) => {
+  const w = world(on)
+  await run($, 'one')
+  await run($, 'two')
+  await run($, '')
+  const ui = await $.ui.mount({
+    plugin: 'pstash',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'pstash',
+    props: { title: 'Stash', isFocused: true, bodyColumns: 60, placement: 'inline' } as never,
+  })
+  const one = stored(w.files)[1].id
+  await $.ui.focus({ component: 'Pane', requestId: 'pstash', element: `pop-${one}`, origin: { kind: 'person' } })
+  await ui.press({ key: 'yank' })
+  expect(w.box.text).toBe('one')
+  expect(stored(w.files).map((i: { text: string }) => i.text)).toEqual(['two', 'one'])
 })

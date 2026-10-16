@@ -27,6 +27,7 @@ In Claude Code:
 | --------------- | ------------------------------------------ |
 | `/stash <text>` | Saves the text                             |
 | `/stash pop`    | Pastes the newest stash into the input box |
+| `/stash yank`   | Same as pop, but keeps it in the stash     |
 | `/stash`        | Opens the picker                           |
 
 **1. Stash a prompt.** Type `/stash` and the prompt you want to send later.
@@ -41,7 +42,7 @@ In Claude Code:
 
 ![The prompt is back in the input box](docs/3-popped.png)
 
-**Or pick one.** Bare `/stash` lists everything: Enter or `1`-`9` pastes, ↑↓ move, `x` deletes the highlighted prompt, Esc closes.
+**Or pick one.** Bare `/stash` lists everything: Enter or `1`-`9` pastes, `y` pastes the highlighted prompt and keeps it, ↑↓ move, `x` deletes the highlighted prompt, Esc closes.
 
 ![The picker](docs/4-picker.png)
 
@@ -80,13 +81,13 @@ Items are newest first, capped at 100, without duplicates. Each change re-reads 
 
 **What each hook does.**
 - `session.start`: adds the `/stash` command and loads the stash count.
-- `command.run` for `stash`: saves, pops or opens the picker.
+- `command.run` for `stash`: saves, pops, yanks or opens the picker.
 - `session.append` for command rows: blanks the arguments of a `/stash` run.
 - `prompt.submit`, `turn.start`, `turn.complete`: notice a `/stash` run outside a turn, so its spinner can be hidden. Prompts pass through unchanged.
 - `ui.render` for `Spinner`: draws the spinner blank while `/stash` runs outside a turn.
 - `ui.render` for `SessionMode`: adds `stash n` to the footer.
 - `ui.render` for its pane: draws the picker.
-- `ui.focus` for its pane: keeps the highlight on the prompts, so `x` always knows which one to delete.
+- `ui.focus` for its pane: keeps the highlight on the prompts, so `x` and `y` always know which one to act on.
 
 ## License
 
