@@ -1,0 +1,22 @@
+name: Check
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # tsc needs the types a Claude Code session writes on load, so it stays a local check.
+      - run: npm install -g @anthropic-ai/claude-code
+      - run: claude plugin validate . --strict
+      - run: claude plugin test .
+      - run: node --test scripts/*.test.mjs

@@ -1,0 +1,65 @@
+name: Release
+
+# Each squash-merged PR is one commit on main; its Conventional Commit type
+# decides the release (scripts/next-version.mjs). Pushes made with GITHUB_TOKEN
+# start no workflow, so the bump commit below does not release again.
+on:
+  push:
+    branches: [main]
+
+concurrency: release
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: next
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          current=$(node -p "require('./.claude-plugin/plugin.json').version")
+          next=$(node scripts/next-version.mjs "$current" "$MESSAGE")
+          if [ -n "$next" ] && git rev-parse -q --verify "refs/tags/v$next" >/dev/null; then next=; fi
+          echo "version=$next" >>"$GITHUB_OUTPUT"
+          echo "current $current, next ${next:-none}"
+
+  check:
+    needs: plan
+    if: needs.plan.outputs.version != ''
+    uses: ./.github/workflows/check.yml
+
+  release:
+    needs: [plan, check]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      MESSAGE: ${{ github.event.head_commit.message }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump, tag and push
+        run: |
+          node -e '
+            const fs = require("fs"), path = ".claude-plugin/plugin.json"
+            const manifest = JSON.parse(fs.readFileSync(path, "utf8"))
+            manifest.version = process.env.VERSION
+            fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + "\n")'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(release): v$VERSION"
+          git tag -a "v$VERSION" -m "v$VERSION"
+          git push origin HEAD:main "v$VERSION"
+      - name: Publish
+        run: |
+          subject=$(printf '%s\n' "$MESSAGE" | head -1 | sed -E 's/^[a-z]+(\([^)]*\))?!?: //')
+          # shellcheck disable=SC2016 # the backticks are Markdown
+          notes=$(printf -- '- %s\n\nUpdate: `claude plugin marketplace update pstash && claude plugin update pstash@pstash`\n' "${subject^}")
+          gh release create "v$VERSION" --verify-tag --latest --title "v$VERSION" --notes "$notes"
