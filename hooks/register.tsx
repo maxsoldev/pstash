@@ -10,7 +10,7 @@ const NOT_PASTED = 'could not paste into the prompt; kept it'
 const items = atom({ plugin: 'pstash', key: 'items' } as const, [] as Item[])
 // True while a /stash run is under way, so its spinner can be blanked.
 const isRunning = atom({ plugin: 'pstash', key: 'isRunning' } as const, false)
-// The id of the picker row that holds the focus ring, for `x` and `y`.
+// The id of the picker row that holds the focus ring, for `p`, `y` and `x`.
 const focused = atom({ plugin: 'pstash', key: 'focused' } as const, null as string | null)
 // `v0.2.0`, plus ` · local` for a copy not installed from a marketplace.
 const label = atom({ plugin: 'pstash', key: 'label' } as const, '')
@@ -114,9 +114,21 @@ async function deleteFocused($: $): Promise<void> {
   const file = await change($, f => remove(f, target.id))
   const next = file.items[Math.min(at, file.items.length - 1)]
   if (next === undefined) return $.ui.close({ id: PANE })
-  await update($, focused, () => next.id)
-  // A hotkey press leaves the ring on its own button once the press ends.
-  $.clock.after(30, () => void $.ui.focus({ requestId: PANE, key: `pop-${next.id}` }))
+  await ring($, next.id)
+}
+
+/** Puts the ring on row `id`. A hotkey press leaves the ring on its own button once the press ends. */
+async function ring($: $, id: string): Promise<void> {
+  await update($, focused, () => id)
+  $.clock.after(30, () => void $.ui.focus({ requestId: PANE, key: `pop-${id}` }))
+}
+
+/** Pops (or with `keep`, yanks) the highlighted row; a toast tells when the box refused it. */
+function actOnFocused($: $, keep: boolean): void {
+  focusedItem($).then(
+    ({ target }) => target && reportPop($, pop($, target, keep)),
+    error => failed($, error),
+  )
 }
 
 /** Reads this copy's version off its plugin.json; installed copies live in the plugins cache. */
@@ -208,9 +220,20 @@ export const register: Register = on => {
     return next({ ...e, props: { ...e.props, modes: [...e.props.modes, `stash ${count}`] } })
   })
 
-  // The ring stays on the rows: never on the yank or delete control or the close mark.
+  // The ring stays on the rows: never on a digit, the p/y/x controls or the close mark.
   on('ui.focus', { requestId: PANE }, async ($, e, next) => {
     const element = e.element ?? ''
+    if (element.startsWith('sel-')) {
+      // A row's digit sits just before it, so an arrow lands there on its way
+      // up from its own row (go on to the row above) or down from the one above.
+      const list = await read($, items)
+      const at = list.findIndex(item => `sel-${item.id}` === element)
+      const isUp = list[at]?.id === (await read($, focused))
+      const target = list[isUp ? Math.max(0, at - 1) : at]
+      if (target === undefined) return { deny: 'rows only' }
+      await update($, focused, () => target.id)
+      return next({ ...e, element: `pop-${target.id}` })
+    }
     if (!element.startsWith('pop-')) {
       const id = await read($, focused)
       return id === null ? { deny: 'rows only' } : next({ ...e, element: `pop-${id}` })
@@ -223,37 +246,40 @@ export const register: Register = on => {
     const { Box, Button, Text } = $.ui.resolve(e)
     const list = await read($, items)
     const version = await read($, label)
-    const width = Math.max(10, e.props.bodyColumns - 4)
+    const width = Math.max(10, e.props.bodyColumns - 8)
     if (list.length === 0) return <Text dimColor>Nothing stashed.</Text>
 
     return (
       <Box flexDirection="column">
         {list.map((item, i) => (
-          <Button
-            key={`pop-${item.id}`}
-            plain
-            {...(i < 9 ? { hotkey: String(i + 1) } : {})}
-            {...(i === 0 ? { autoFocus: true as const } : {})}
-            onPress={() => reportPop($, pop($, item))}
-          >
-            {preview(item.text, width)}
-          </Button>
+          <Box key={`row-${item.id}`}>
+            {i < 9 ? (
+              <Button
+                key={`sel-${item.id}`}
+                plain
+                dimColor
+                hotkey={String(i + 1)}
+                label=" "
+                onPress={() => ring($, item.id).catch(error => failed($, error))}
+              />
+            ) : (
+              <Text>{'    '}</Text>
+            )}
+            <Button
+              key={`pop-${item.id}`}
+              plain
+              {...(i === 0 ? { autoFocus: true as const } : {})}
+              onPress={() => reportPop($, pop($, item))}
+            >
+              {preview(item.text, width)}
+            </Button>
+          </Box>
         ))}
         <Box>
-          <Text dimColor>enter or 1-9 paste · ↑↓ move · </Text>
-          <Button
-            key="yank"
-            plain
-            dimColor
-            hotkey="y"
-            label="yank"
-            onPress={() =>
-              focusedItem($).then(
-                ({ target }) => target && reportPop($, pop($, target, true)),
-                error => failed($, error),
-              )
-            }
-          />
+          <Text dimColor>1-9 select · ↑↓ move · </Text>
+          <Button key="pop" plain dimColor hotkey="p" label="pop" onPress={() => actOnFocused($, false)} />
+          <Text dimColor> · </Text>
+          <Button key="yank" plain dimColor hotkey="y" label="yank" onPress={() => actOnFocused($, true)} />
           <Text dimColor> · </Text>
           <Button
             key="delete"

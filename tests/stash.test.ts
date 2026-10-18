@@ -97,7 +97,7 @@ test('the picker pastes the chosen item', async ($, on) => {
       requestId: 'pstash',
       props: { title: 'Stash', isFocused: true, bodyColumns: 60, placement: 'inline' } as never,
     })
-    expect(await ui.findAll({ type: 'Button' })).toHaveLength(4)
+    expect(await ui.findAll({ type: 'Button' })).toHaveLength(7)
     await ui.unmount()
   }
   const ui = await $.ui.mount({
@@ -195,4 +195,52 @@ test('the picker shows the version of the copy that runs', async ($, on) => {
     props: { title: 'Stash', isFocused: true, bodyColumns: 60, placement: 'inline' } as never,
   })
   expect(JSON.stringify(await ui.drawn())).toContain('v9.9.9')
+})
+
+test('a digit only moves the ring; p pops the highlighted row', async ($, on) => {
+  const w = world(on)
+  await run($, 'one')
+  await run($, 'two')
+  await run($, '')
+  const ui = await $.ui.mount({
+    plugin: 'pstash',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'pstash',
+    props: { title: 'Stash', isFocused: true, bodyColumns: 60, placement: 'inline' } as never,
+  })
+  const one = stored(w.files)[1].id
+  await ui.press({ key: `sel-${one}` })
+  expect(w.box.text).toBe('')
+  expect(stored(w.files)).toHaveLength(2)
+  await ui.press({ key: 'pop' })
+  expect(w.box.text).toBe('one')
+  expect(stored(w.files).map((i: { text: string }) => i.text)).toEqual(['two'])
+})
+
+test('an arrow onto a digit goes on to the next row in that direction', async ($, on) => {
+  const w = world(on)
+  await run($, 'one')
+  await run($, 'two')
+  await run($, '')
+  const ui = await $.ui.mount({
+    plugin: 'pstash',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'pstash',
+    props: { title: 'Stash', isFocused: true, bodyColumns: 60, placement: 'inline' } as never,
+  })
+  const [two, one] = stored(w.files).map((i: { id: string }) => i.id)
+  const focus = (element: string) =>
+    $.ui.focus({ component: 'Pane', requestId: 'pstash', element, origin: { kind: 'person' } })
+  const yanked = async () => {
+    w.box.text = ''
+    await ui.press({ key: 'yank' })
+    return w.box.text
+  }
+  await focus(`pop-${two}`)
+  await focus(`sel-${one}`) // down from row 1
+  expect(await yanked()).toBe('one')
+  await focus(`sel-${one}`) // up from row 2
+  expect(await yanked()).toBe('two')
 })
