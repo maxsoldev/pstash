@@ -13,7 +13,7 @@ function world(on: On, files: Record<string, string> = {}) {
   on('env.get', ($, e) => ({ value: e.name === 'PSTASH_DIR' ? DIR : undefined }))
   on('session.root', () => ({ value: '/work/app' }))
   on('fs.exists', ($, e) => ({ value: e.path in files }))
-  on('fs.read', ($, e) => ({ value: files[e.path] ?? '' }))
+  on('fs.read', ($, e) => ({ value: e.path.endsWith('/.claude-plugin/plugin.json') ? '{"version":"9.9.9"}' : (files[e.path] ?? '') }))
   on('fs.write', ($, e) => {
     files[e.path] = e.text
     return { value: undefined }
@@ -179,4 +179,20 @@ test('y in the picker pastes the highlighted row and keeps it', async ($, on) =>
   await ui.press({ key: 'yank' })
   expect(w.box.text).toBe('one')
   expect(stored(w.files).map((i: { text: string }) => i.text)).toEqual(['two', 'one'])
+})
+
+test('the picker shows the version of the copy that runs', async ($, on) => {
+  world(on)
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/work/app', surface: 'terminal', isInteractive: true })
+  await run($, 'one')
+  await run($, '')
+  const ui = await $.ui.mount({
+    plugin: 'pstash',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'pstash',
+    props: { title: 'Stash', isFocused: true, bodyColumns: 60, placement: 'inline' } as never,
+  })
+  expect(JSON.stringify(await ui.drawn())).toContain('v9.9.9')
 })

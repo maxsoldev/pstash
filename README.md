@@ -42,7 +42,7 @@ In Claude Code:
 
 ![The prompt is back in the input box](docs/3-popped.png)
 
-**Or pick one.** Bare `/stash` lists everything: Enter or `1`-`9` pastes, `y` pastes the highlighted prompt and keeps it, ↑↓ move, `x` deletes the highlighted prompt, Esc closes.
+**Or pick one.** Bare `/stash` lists everything: Enter or `1`-`9` pastes, `y` pastes the highlighted prompt and keeps it, ↑↓ move, `x` deletes the highlighted prompt, Esc closes. The bottom right shows the version that runs, with `· local` for a `--plugin-dir` copy.
 
 ![The picker](docs/4-picker.png)
 
@@ -77,10 +77,10 @@ Items are newest first, capped at 100, without duplicates. Each change re-reads 
 
 **What it changes in the chat.** In the record of a `/stash` run it blanks the command's arguments, so the stashed text never reaches Claude. Claude only sees `/stash` and the short output line, like `stashed · 3`.
 
-**What it reads.** The `HOME` and `PSTASH_DIR` environment variables, to find the stash folder, and the session's project root, to pick the file.
+**What it reads.** The `HOME` and `PSTASH_DIR` environment variables, to find the stash folder, and the session's project root, to pick the file. Its own `plugin.json`, for the version in the picker.
 
 **What each hook does.**
-- `session.start`: adds the `/stash` command and loads the stash count.
+- `session.start`: adds the `/stash` command, loads the stash count and reads the version.
 - `command.run` for `stash`: saves, pops, yanks or opens the picker.
 - `session.append` for command rows: blanks the arguments of a `/stash` run.
 - `prompt.submit`, `turn.start`, `turn.complete`: notice a `/stash` run outside a turn, so its spinner can be hidden. Prompts pass through unchanged.

@@ -12,6 +12,8 @@ const items = atom({ plugin: 'pstash', key: 'items' } as const, [] as Item[])
 const isRunning = atom({ plugin: 'pstash', key: 'isRunning' } as const, false)
 // The id of the picker row that holds the focus ring, for `x` and `y`.
 const focused = atom({ plugin: 'pstash', key: 'focused' } as const, null as string | null)
+// `v0.2.0`, plus ` · local` for a copy not installed from a marketplace.
+const label = atom({ plugin: 'pstash', key: 'label' } as const, '')
 
 // The transcript row of a `/stash ...` run, and the args in it to blank out.
 const STASH_ROW = /<command-name>\/?(?:pstash:)?stash<\/command-name>/
@@ -117,6 +119,14 @@ async function deleteFocused($: $): Promise<void> {
   $.clock.after(30, () => void $.ui.focus({ requestId: PANE, key: `pop-${next.id}` }))
 }
 
+/** Reads this copy's version off its plugin.json; installed copies live in the plugins cache. */
+async function versionLabel($: $): Promise<string> {
+  const manifest = JSON.parse(String(await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`)))
+  const version = typeof manifest.version === 'string' ? `v${manifest.version}` : ''
+  const isInstalled = $.plugin.root.includes('/.claude/plugins/')
+  return isInstalled ? version : `${version} · local`
+}
+
 function message(error: unknown): string {
   return `pstash: ${error instanceof Error ? error.message : String(error)}`
 }
@@ -136,6 +146,8 @@ export const register: Register = on => {
     $.ui.status(undefined) // clears the line 0.1.0 pinned
     await update($, isRunning, () => false) // a reload mid-run leaves it set
     await load($).then(file => show($, file.items), error => failed($, error))
+    // Provenance only: a missing or odd manifest just leaves the label empty.
+    await versionLabel($).then(text => update($, label, () => text), () => undefined)
     return next(e)
   })
 
@@ -210,6 +222,7 @@ export const register: Register = on => {
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Button, Text } = $.ui.resolve(e)
     const list = await read($, items)
+    const version = await read($, label)
     const width = Math.max(10, e.props.bodyColumns - 4)
     if (list.length === 0) return <Text dimColor>Nothing stashed.</Text>
 
@@ -251,6 +264,9 @@ export const register: Register = on => {
             onPress={() => deleteFocused($).catch(error => failed($, error))}
           />
           <Text dimColor> · esc close</Text>
+          <Box flexGrow={1} justifyContent="flex-end">
+            <Text dimColor>{version}</Text>
+          </Box>
         </Box>
       </Box>
     )
