@@ -101,6 +101,7 @@ With [Task](https://taskfile.dev):
 task check   # tsc, tests, validate --strict
 task dev     # Claude Code with this checkout instead of the installed pstash
 task prod    # update the installed pstash from GitHub, then start Claude Code
+task shots   # re-shoot the screenshots in docs/
 ```
 
 `task dev` uses `claude --plugin-dir .`, which replaces the installed pstash for that session only. Plain `claude` still uses the installed copy.

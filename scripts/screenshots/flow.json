@@ -1,0 +1,23 @@
+[
+ {
+  "keys": "/stash how does the retry logic decide when to give up on a request?",
+  "type": true,
+  "wait": 1,
+  "shot": "1-adding"
+ },
+ {
+  "keys": "\r",
+  "wait": 3,
+  "shot": "2-added"
+ },
+ {
+  "keys": "/stash pop",
+  "type": true,
+  "wait": 1
+ },
+ {
+  "keys": "\r",
+  "wait": 3,
+  "shot": "3-popped"
+ }
+]

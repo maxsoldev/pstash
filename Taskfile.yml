@@ -24,3 +24,8 @@ tasks:
       - claude plugin list | grep -A1 'pstash@pstash'
       - claude {{.CLI_ARGS}}
     interactive: true
+
+  shots:
+    desc: Re-shoot the README screenshots in docs/ from a real session (no model calls)
+    cmds:
+      - scripts/screenshots/shoot.sh
