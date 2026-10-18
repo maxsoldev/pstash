@@ -1,0 +1,26 @@
+version: '3'
+
+tasks:
+  check:
+    desc: Type-check, test and validate the plugin
+    cmds:
+      - npx tsc -p .
+      - claude plugin test .
+      - claude plugin validate . --strict
+
+  dev:
+    desc: Start Claude Code with this checkout instead of the installed pstash
+    deps: [check]
+    cmds:
+      # A --plugin-dir copy replaces a same-named installed plugin for this session only.
+      - claude --plugin-dir . {{.CLI_ARGS}}
+    interactive: true
+
+  prod:
+    desc: Update the installed pstash from GitHub, then start Claude Code with it
+    cmds:
+      - claude plugin marketplace update pstash
+      - claude plugin update pstash@pstash
+      - claude plugin list | grep -A1 'pstash@pstash'
+      - claude {{.CLI_ARGS}}
+    interactive: true

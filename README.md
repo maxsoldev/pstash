@@ -95,8 +95,12 @@ Items are newest first, capped at 100, without duplicates. Each change re-reads 
 
 ## Develop
 
+With [Task](https://taskfile.dev):
+
 ```
-claude --plugin-dir .
-claude plugin validate .
-claude plugin test .
+task check   # tsc, tests, validate --strict
+task dev     # Claude Code with this checkout instead of the installed pstash
+task prod    # update the installed pstash from GitHub, then start Claude Code
 ```
+
+`task dev` uses `claude --plugin-dir .`, which replaces the installed pstash for that session only. Plain `claude` still uses the installed copy.
