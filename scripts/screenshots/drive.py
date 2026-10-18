@@ -3,7 +3,7 @@
 Usage: drive.py <steps.json> <out-dir>. Each step: {"keys": str, "type": bool?, "wait": secs, "shot": name?}.
 Reads PSTASH_REPO (the plugin checkout) and PSTASH_SHOTS (the work dir with my-app/ and store/).
 """
-import json, os, pty, select, sys, time
+import json, os, pty, re, select, sys, time
 
 import pyte
 
@@ -42,7 +42,8 @@ def pump(secs):
                 data = os.read(fd, 65536)
             except OSError:
                 return
-            stream.feed(data)
+            # pyte can't read kitty keyboard-protocol codes (CSI < u) and prints their `u`
+            stream.feed(re.sub(rb'\x1b\[[<>=?][0-9;]*u', b'', data))
 
 
 def snapshot(name):

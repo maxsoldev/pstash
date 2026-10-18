@@ -17,6 +17,15 @@ NAMED = {
 VERSION = json.load(open(f"{os.environ['PSTASH_REPO']}/.claude-plugin/plugin.json"))['version']
 APP = os.path.realpath(f"{os.environ['PSTASH_SHOTS']}/my-app")
 
+# Block elements as filled boxes (fractions of a cell), so the logo has no gaps
+# between rows the way font glyphs leave them.
+TL, TR, BL, BR = (0, 0, .5, .5), (.5, 0, 1, .5), (0, .5, .5, 1), (.5, .5, 1, 1)
+BLOCKS = {
+    '█': [(0, 0, 1, 1)], '▀': [(0, 0, 1, .5)], '▄': [(0, .5, 1, 1)], '▌': [(0, 0, .5, 1)], '▐': [(.5, 0, 1, 1)],
+    '▘': [TL], '▝': [TR], '▖': [BL], '▗': [BR], '▚': [TL, BR], '▞': [TR, BL],
+    '▛': [TL, TR, BL], '▜': [TL, TR, BR], '▙': [TL, BL, BR], '▟': [TR, BL, BR],
+}
+
 
 def color(value, default):
     if value == 'default':
@@ -30,10 +39,6 @@ rows = json.load(open(sys.argv[1]))
 # start at the logo; drop the user's settings warnings above it
 start = next(i for i, row in enumerate(rows) if '▐▛' in ''.join(c[0] for c in row))
 rows = rows[start:]
-# a warning drawn on the logo's row first can leave a cell or two beside it
-logo = ''.join(c[0] for c in rows[0]).index('▐▛')
-for c in rows[0][:logo]:
-    c[0] = ' '
 # cosmetic: drop the notice about this demo sharing a name with the parent session
 rows = [r for r in rows if 'Another live session' not in ''.join(c[0] for c in r)]
 # collapse runs of blank rows to one
@@ -90,13 +95,17 @@ for y, row in enumerate(rows):
         while nx < cols and row[nx][1:] == row[x][1:]:
             run.append(row[nx][0])
             nx += 1
-        fgc, bgc = color(fg, FG), color(bg, None)
+        # the logo's dark cells are pure black, which a black terminal hides; so does this
+        fgc, bgc = color(fg, FG), (None if bg == '000000' else color(bg, None))
         if reverse:
             fgc, bgc = (bgc or BG), fgc
         px, py = PAD + x * CW, top + y * CH
         if bgc:
             out.append(f'<rect x="{px:.1f}" y="{py:.1f}" width="{len(run) * CW:.1f}" height="{CH}" fill="{bgc}"/>')
-        text = ''.join(run)
+        for i, ch in enumerate(run):
+            for x0, y0, x1, y1 in BLOCKS.get(ch, []):
+                out.append(f'<rect x="{px + (i + x0) * CW:.2f}" y="{py + y0 * CH:.2f}" width="{(x1 - x0) * CW:.2f}" height="{(y1 - y0) * CH:.2f}" fill="{fgc}" shape-rendering="crispEdges"/>')
+        text = ''.join(' ' if ch in BLOCKS else ch for ch in run)
         if text.strip():
             style = (' font-weight="bold"' if bold else '') + (' font-style="italic"' if italic else '')
             out.append(f'<text x="{px:.1f}" y="{py + CH * 0.75:.1f}" fill="{fgc}"{style} textLength="{len(run) * CW:.1f}" lengthAdjust="spacingAndGlyphs">{escape(text)}</text>')
