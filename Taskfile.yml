@@ -2,11 +2,12 @@ version: '3'
 
 tasks:
   check:
-    desc: Type-check, test and validate the plugin
+    desc: Type-check, test and validate the plugin and the release scripts
     cmds:
       - npx tsc -p .
       - claude plugin test .
       - claude plugin validate . --strict
+      - node --test scripts/*.test.mjs
 
   dev:
     desc: Start Claude Code with this checkout instead of the installed pstash
