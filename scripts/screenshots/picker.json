@@ -1,0 +1,21 @@
+[
+ {
+  "keys": "/stash how does the retry logic decide when to give up on a request?",
+  "type": true,
+  "wait": 1
+ },
+ {
+  "keys": "\r",
+  "wait": 3
+ },
+ {
+  "keys": "/stash",
+  "type": true,
+  "wait": 1
+ },
+ {
+  "keys": "\r",
+  "wait": 3,
+  "shot": "4-picker"
+ }
+]

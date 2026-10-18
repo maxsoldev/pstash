@@ -6,6 +6,6 @@ export type StashFile = { version: 1; project: string; items: Item[] }
 
 declare module 'claude-code' {
   interface PluginState {
-    pstash: { items: Item[]; isRunning: boolean; focused: string | null }
+    pstash: { items: Item[]; isRunning: boolean; focused: string | null; label: string }
   }
 }

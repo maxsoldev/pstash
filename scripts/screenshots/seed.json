@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "project": "",
+  "items": [
+    {
+      "id": "d3",
+      "text": "refactor the auth middleware to use the new session store, keep the old cookie name",
+      "at": "2026-10-11T12:40:00.000Z",
+      "from": "claude"
+    },
+    {
+      "id": "d1",
+      "text": "why does `pnpm build` take 40s on CI but 8s locally?",
+      "at": "2026-10-11T12:20:00.000Z",
+      "from": "claude"
+    },
+    {
+      "id": "d0",
+      "text": "rename the config loader to settings once this PR is merged",
+      "at": "2026-10-11T12:10:00.000Z",
+      "from": "claude"
+    }
+  ]
+}

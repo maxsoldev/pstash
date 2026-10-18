@@ -27,6 +27,7 @@ In Claude Code:
 | --------------- | ------------------------------------------ |
 | `/stash <text>` | Saves the text                             |
 | `/stash pop`    | Pastes the newest stash into the input box |
+| `/stash yank`   | Same as pop, but keeps it in the stash     |
 | `/stash`        | Opens the picker                           |
 
 **1. Stash a prompt.** Type `/stash` and the prompt you want to send later.
@@ -41,7 +42,7 @@ In Claude Code:
 
 ![The prompt is back in the input box](docs/3-popped.png)
 
-**Or pick one.** Bare `/stash` lists everything: Enter or `1`-`9` pastes, ↑↓ move, `x` deletes the highlighted prompt, Esc closes.
+**Or pick one.** Bare `/stash` lists everything: `1`-`9` or ↑↓ highlight a prompt. Then `p` or Enter pastes it, `y` pastes it and keeps it, `x` deletes it. Esc closes. The bottom right shows the version that runs, with `· local` for a `--plugin-dir` copy.
 
 ![The picker](docs/4-picker.png)
 
@@ -76,17 +77,17 @@ Items are newest first, capped at 100, without duplicates. Each change re-reads 
 
 **What it changes in the chat.** In the record of a `/stash` run it blanks the command's arguments, so the stashed text never reaches Claude. Claude only sees `/stash` and the short output line, like `stashed · 3`.
 
-**What it reads.** The `HOME` and `PSTASH_DIR` environment variables, to find the stash folder, and the session's project root, to pick the file.
+**What it reads.** The `HOME` and `PSTASH_DIR` environment variables, to find the stash folder, and the session's project root, to pick the file. Its own `plugin.json`, for the version in the picker.
 
 **What each hook does.**
-- `session.start`: adds the `/stash` command and loads the stash count.
-- `command.run` for `stash`: saves, pops or opens the picker.
+- `session.start`: adds the `/stash` command, loads the stash count and reads the version.
+- `command.run` for `stash`: saves, pops, yanks or opens the picker.
 - `session.append` for command rows: blanks the arguments of a `/stash` run.
 - `prompt.submit`, `turn.start`, `turn.complete`: notice a `/stash` run outside a turn, so its spinner can be hidden. Prompts pass through unchanged.
 - `ui.render` for `Spinner`: draws the spinner blank while `/stash` runs outside a turn.
 - `ui.render` for `SessionMode`: adds `stash n` to the footer.
 - `ui.render` for its pane: draws the picker.
-- `ui.focus` for its pane: keeps the highlight on the prompts, so `x` always knows which one to delete.
+- `ui.focus` for its pane: keeps the highlight on the prompts, so `p`, `y` and `x` always know which one to act on.
 
 ## License
 
@@ -94,8 +95,13 @@ Items are newest first, capped at 100, without duplicates. Each change re-reads 
 
 ## Develop
 
+With [Task](https://taskfile.dev):
+
 ```
-claude --plugin-dir .
-claude plugin validate .
-claude plugin test .
+task check   # tsc, tests, validate --strict
+task dev     # Claude Code with this checkout instead of the installed pstash
+task prod    # update the installed pstash from GitHub, then start Claude Code
+task shots   # re-shoot the screenshots in docs/
 ```
+
+`task dev` uses `claude --plugin-dir .`, which replaces the installed pstash for that session only. Plain `claude` still uses the installed copy.

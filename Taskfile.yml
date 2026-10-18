@@ -1,0 +1,32 @@
+version: '3'
+
+tasks:
+  check:
+    desc: Type-check, test and validate the plugin and the release scripts
+    cmds:
+      - npx tsc -p .
+      - claude plugin test .
+      - claude plugin validate . --strict
+      - node --test scripts/*.test.mjs
+
+  dev:
+    desc: Start Claude Code with this checkout instead of the installed pstash
+    deps: [check]
+    cmds:
+      # A --plugin-dir copy replaces a same-named installed plugin for this session only.
+      - claude --plugin-dir . {{.CLI_ARGS}}
+    interactive: true
+
+  prod:
+    desc: Update the installed pstash from GitHub, then start Claude Code with it
+    cmds:
+      - claude plugin marketplace update pstash
+      - claude plugin update pstash@pstash
+      - claude plugin list | grep -A1 'pstash@pstash'
+      - claude {{.CLI_ARGS}}
+    interactive: true
+
+  shots:
+    desc: Re-shoot the README screenshots in docs/ from a real session (no model calls)
+    cmds:
+      - scripts/screenshots/shoot.sh

@@ -10,8 +10,10 @@ const NOT_PASTED = 'could not paste into the prompt; kept it'
 const items = atom({ plugin: 'pstash', key: 'items' } as const, [] as Item[])
 // True while a /stash run is under way, so its spinner can be blanked.
 const isRunning = atom({ plugin: 'pstash', key: 'isRunning' } as const, false)
-// The id of the picker row that holds the focus ring, for `x` to delete.
+// The id of the picker row that holds the focus ring, for `p`, `y` and `x`.
 const focused = atom({ plugin: 'pstash', key: 'focused' } as const, null as string | null)
+// `v0.2.0`, plus ` · local` for a copy not installed from a marketplace.
+const label = atom({ plugin: 'pstash', key: 'label' } as const, '')
 
 // The transcript row of a `/stash ...` run, and the args in it to blank out.
 const STASH_ROW = /<command-name>\/?(?:pstash:)?stash<\/command-name>/
@@ -65,19 +67,35 @@ async function stash($: $, text: string): Promise<string> {
   return `stashed · ${file.items.length}`
 }
 
-/** Pastes at the cursor first and removes only once the box took it. */
-async function pop($: $, item: Item): Promise<string> {
+/** Pastes at the cursor first and removes only once the box took it; `keep` leaves it stashed. */
+async function pop($: $, item: Item, keep = false): Promise<string> {
   const isOpen = (await $.ui.panes()).some(pane => pane.id === PANE)
   if (isOpen) await $.ui.close({ id: PANE })
   const filled = await $.prompt.fill({ text: item.text, mode: 'insert' })
   if (!filled.isFilled) return NOT_PASTED
+  if (keep) return `pasted · kept, ${(await load($)).items.length} stashed`
   const file = await change($, f => remove(f, item.id))
   return `pasted · ${file.items.length} left`
 }
 
-async function popNewest($: $): Promise<string> {
+async function popNewest($: $, keep = false): Promise<string> {
   const newest = (await load($)).items[0]
-  return newest === undefined ? 'nothing stashed' : pop($, newest)
+  return newest === undefined ? 'nothing stashed' : pop($, newest, keep)
+}
+
+/** The highlighted picker row, else the first, with its index. */
+async function focusedItem($: $): Promise<{ at: number; target: Item | undefined }> {
+  const list = await read($, items)
+  const id = await read($, focused)
+  const at = Math.max(0, list.findIndex(item => item.id === id))
+  return { at, target: list[at] }
+}
+
+function reportPop($: $, pending: Promise<string>): void {
+  pending.then(
+    text => text === NOT_PASTED && $.ui.toast(text),
+    error => failed($, error),
+  )
 }
 
 async function openPicker($: $): Promise<string> {
@@ -91,17 +109,34 @@ async function openPicker($: $): Promise<string> {
 
 /** Deletes the highlighted row (else the first) and moves the ring to the row now in its place. */
 async function deleteFocused($: $): Promise<void> {
-  const list = await read($, items)
-  const id = await read($, focused)
-  const at = Math.max(0, list.findIndex(item => item.id === id))
-  const target = list[at]
+  const { at, target } = await focusedItem($)
   if (target === undefined) return
   const file = await change($, f => remove(f, target.id))
   const next = file.items[Math.min(at, file.items.length - 1)]
   if (next === undefined) return $.ui.close({ id: PANE })
-  await update($, focused, () => next.id)
-  // A hotkey press leaves the ring on its own button once the press ends.
-  $.clock.after(30, () => void $.ui.focus({ requestId: PANE, key: `pop-${next.id}` }))
+  await ring($, next.id)
+}
+
+/** Puts the ring on row `id`. A hotkey press leaves the ring on its own button once the press ends. */
+async function ring($: $, id: string): Promise<void> {
+  await update($, focused, () => id)
+  $.clock.after(30, () => void $.ui.focus({ requestId: PANE, key: `pop-${id}` }))
+}
+
+/** Pops (or with `keep`, yanks) the highlighted row; a toast tells when the box refused it. */
+function actOnFocused($: $, keep: boolean): void {
+  focusedItem($).then(
+    ({ target }) => target && reportPop($, pop($, target, keep)),
+    error => failed($, error),
+  )
+}
+
+/** Reads this copy's version off its plugin.json; installed copies live in the plugins cache. */
+async function versionLabel($: $): Promise<string> {
+  const manifest = JSON.parse(String(await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`)))
+  const version = typeof manifest.version === 'string' ? `v${manifest.version}` : ''
+  const isInstalled = $.plugin.root.includes('/.claude/plugins/')
+  return isInstalled ? version : `${version} · local`
 }
 
 function message(error: unknown): string {
@@ -117,12 +152,14 @@ export const register: Register = on => {
     await $.command.register({
       name: 'stash',
       description: 'Stash a prompt for later; bare /stash picks one to paste back',
-      argumentHint: '[text | pop]',
+      argumentHint: '[text | pop | yank]',
       immediate: true,
     })
     $.ui.status(undefined) // clears the line 0.1.0 pinned
     await update($, isRunning, () => false) // a reload mid-run leaves it set
     await load($).then(file => show($, file.items), error => failed($, error))
+    // Provenance only: a missing or odd manifest just leaves the label empty.
+    await versionLabel($).then(text => update($, label, () => text), () => undefined)
     return next(e)
   })
 
@@ -148,6 +185,7 @@ export const register: Register = on => {
     try {
       if (args === '') return { text: await openPicker($) }
       if (args === 'pop') return { text: await popNewest($) }
+      if (args === 'yank') return { text: await popNewest($, true) }
       return { text: await stash($, args) }
     } catch (error) {
       return { text: message(error) }
@@ -182,9 +220,20 @@ export const register: Register = on => {
     return next({ ...e, props: { ...e.props, modes: [...e.props.modes, `stash ${count}`] } })
   })
 
-  // The ring stays on the rows: never on the delete control or the close mark.
+  // The ring stays on the rows: never on a digit, the p/y/x controls or the close mark.
   on('ui.focus', { requestId: PANE }, async ($, e, next) => {
     const element = e.element ?? ''
+    if (element.startsWith('sel-')) {
+      // A row's digit sits just before it, so an arrow lands there on its way
+      // up from its own row (go on to the row above) or down from the one above.
+      const list = await read($, items)
+      const at = list.findIndex(item => `sel-${item.id}` === element)
+      const isUp = list[at]?.id === (await read($, focused))
+      const target = list[isUp ? Math.max(0, at - 1) : at]
+      if (target === undefined) return { deny: 'rows only' }
+      await update($, focused, () => target.id)
+      return next({ ...e, element: `pop-${target.id}` })
+    }
     if (!element.startsWith('pop-')) {
       const id = await read($, focused)
       return id === null ? { deny: 'rows only' } : next({ ...e, element: `pop-${id}` })
@@ -196,29 +245,42 @@ export const register: Register = on => {
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Button, Text } = $.ui.resolve(e)
     const list = await read($, items)
-    const width = Math.max(10, e.props.bodyColumns - 4)
+    const version = await read($, label)
+    const width = Math.max(10, e.props.bodyColumns - 8)
     if (list.length === 0) return <Text dimColor>Nothing stashed.</Text>
 
     return (
       <Box flexDirection="column">
         {list.map((item, i) => (
-          <Button
-            key={`pop-${item.id}`}
-            plain
-            {...(i < 9 ? { hotkey: String(i + 1) } : {})}
-            {...(i === 0 ? { autoFocus: true as const } : {})}
-            onPress={() =>
-              pop($, item).then(
-                text => text === NOT_PASTED && $.ui.toast(text),
-                error => failed($, error),
-              )
-            }
-          >
-            {preview(item.text, width)}
-          </Button>
+          <Box key={`row-${item.id}`}>
+            {i < 9 ? (
+              <Button
+                key={`sel-${item.id}`}
+                plain
+                dimColor
+                hotkey={String(i + 1)}
+                label=" "
+                onPress={() => ring($, item.id).catch(error => failed($, error))}
+              />
+            ) : (
+              <Text>{'    '}</Text>
+            )}
+            <Button
+              key={`pop-${item.id}`}
+              plain
+              {...(i === 0 ? { autoFocus: true as const } : {})}
+              onPress={() => reportPop($, pop($, item))}
+            >
+              {preview(item.text, width)}
+            </Button>
+          </Box>
         ))}
         <Box>
-          <Text dimColor>enter or 1-9 paste · ↑↓ move · </Text>
+          <Text dimColor>1-9 select · ↑↓ move · </Text>
+          <Button key="pop" plain dimColor hotkey="p" label="pop" onPress={() => actOnFocused($, false)} />
+          <Text dimColor> · </Text>
+          <Button key="yank" plain dimColor hotkey="y" label="yank" onPress={() => actOnFocused($, true)} />
+          <Text dimColor> · </Text>
           <Button
             key="delete"
             plain
@@ -228,6 +290,9 @@ export const register: Register = on => {
             onPress={() => deleteFocused($).catch(error => failed($, error))}
           />
           <Text dimColor> · esc close</Text>
+          <Box flexGrow={1} justifyContent="flex-end">
+            <Text dimColor>{version}</Text>
+          </Box>
         </Box>
       </Box>
     )
