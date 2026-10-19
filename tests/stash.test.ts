@@ -197,6 +197,15 @@ test('the picker shows the version of the copy that runs', async ($, on) => {
   expect(JSON.stringify(await ui.drawn())).toContain('v9.9.9')
 })
 
+test('after /clear the footer count comes back from the file', async ($, on) => {
+  const item = { id: 'a', text: 'kept', at: '2026-01-01T00:00:00.000Z', from: 'claude' }
+  world(on, { [FILE]: JSON.stringify({ version: 1, project: '/work/app', items: [item] }) })
+  on('classic.SessionStart', () => ({}))
+  await $.classic.SessionStart({ source: 'clear' })
+  const ui = await $.ui.mount({ plugin: 'pstash', surface: 'terminal', component: 'SessionMode', props: { modes: [] } })
+  expect(JSON.stringify(await ui.drawn())).toContain('stash 1')
+})
+
 test('a digit only moves the ring; p pops the highlighted row', async ($, on) => {
   const w = world(on)
   await run($, 'one')

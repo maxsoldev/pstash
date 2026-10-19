@@ -139,6 +139,13 @@ async function versionLabel($: $): Promise<string> {
   return isInstalled ? version : `${version} · local`
 }
 
+/** Fills the session's state from disk: the count, the rows and the version label. */
+async function fill($: $): Promise<void> {
+  await load($).then(file => show($, file.items), error => failed($, error))
+  // Provenance only: a missing or odd manifest just leaves the label empty.
+  await versionLabel($).then(text => update($, label, () => text), () => undefined)
+}
+
 function message(error: unknown): string {
   return `pstash: ${error instanceof Error ? error.message : String(error)}`
 }
@@ -157,9 +164,13 @@ export const register: Register = on => {
     })
     $.ui.status(undefined) // clears the line 0.1.0 pinned
     await update($, isRunning, () => false) // a reload mid-run leaves it set
-    await load($).then(file => show($, file.items), error => failed($, error))
-    // Provenance only: a missing or odd manifest just leaves the label empty.
-    await versionLabel($).then(text => update($, label, () => text), () => undefined)
+    await fill($)
+    return next(e)
+  })
+
+  // `/clear` starts a new session with empty state and no `session.start`.
+  on('classic.SessionStart', { source: 'clear' }, async ($, e, next) => {
+    await fill($)
     return next(e)
   })
 
