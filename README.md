@@ -23,12 +23,12 @@ In Claude Code:
 
 ## Use
 
-| Command         | Does                                       |
-| --------------- | ------------------------------------------ |
-| `/stash <text>` | Saves the text                             |
-| `/stash pop`    | Pastes the newest stash into the input box |
-| `/stash yank`   | Same as pop, but keeps it in the stash     |
-| `/stash`        | Opens the picker                           |
+| Command         | Does                                                       |
+| --------------- | ---------------------------------------------------------- |
+| `/stash <text>` | Saves the text                                             |
+| `/stash pop`    | Pastes the newest stash into the input box (or `/stash p`) |
+| `/stash yank`   | Same as pop, but keeps it in the stash (or `/stash y`)     |
+| `/stash`        | Opens the picker                                           |
 
 **1. Stash a prompt.** Type `/stash` and the prompt you want to send later.
 

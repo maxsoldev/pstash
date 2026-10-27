@@ -159,7 +159,7 @@ export const register: Register = on => {
     await $.command.register({
       name: 'stash',
       description: 'Stash a prompt for later; bare /stash picks one to paste back',
-      argumentHint: '[text | pop | yank]',
+      argumentHint: '[text | p[op] | y[ank]]',
       immediate: true,
     })
     $.ui.status(undefined) // clears the line 0.1.0 pinned
@@ -195,8 +195,8 @@ export const register: Register = on => {
     await update($, isRunning, () => true)
     try {
       if (args === '') return { text: await openPicker($) }
-      if (args === 'pop') return { text: await popNewest($) }
-      if (args === 'yank') return { text: await popNewest($, true) }
+      if (args === 'pop' || args === 'p') return { text: await popNewest($) }
+      if (args === 'yank' || args === 'y') return { text: await popNewest($, true) }
       return { text: await stash($, args) }
     } catch (error) {
       return { text: message(error) }

@@ -162,6 +162,16 @@ test('yank pastes the newest and keeps it stashed', async ($, on) => {
   expect(stored(w.files).map((i: { text: string }) => i.text)).toEqual(['keep me', 'older'])
 })
 
+test('p and y are short for pop and yank', async ($, on) => {
+  const w = world(on)
+  await run($, 'older')
+  await run($, 'newer')
+  expect((await run($, 'y')).text).toBe('pasted · kept, 2 stashed')
+  expect(w.box.text).toBe('newer')
+  expect((await run($, 'p')).text).toBe('pasted · 1 left')
+  expect(stored(w.files).map((i: { text: string }) => i.text)).toEqual(['older'])
+})
+
 test('y in the picker pastes the highlighted row and keeps it', async ($, on) => {
   const w = world(on)
   await run($, 'one')
